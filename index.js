@@ -2,14 +2,14 @@
  * Vue 基类 
  * 通过 new Vue({})进行实例化 实例化时需要传入一个对象(options)
  * options 需要包含指定 DOM 元素以及需要绑定的数据(data)
+ * 在 Vue 实例化的时候, 需要完成数据绑定与模板编译
  */
 class Vue {
   constructor(options) {
     this.$el = document.querySelector(options.el)
     this.$data = options.data
-    // 在 Vue 实例化的时候, 需要完成数据绑定与模板编译
     observe(this.$data) // 数据绑定
-    compile(this.$el, this.$data)
+    compile(this.$el, this.$data) // 模板编译
   }
 }
 
@@ -20,7 +20,7 @@ class Vue {
  */
 
 function observe(data) {
-  if (Object.prototype.toString.call(data) === '[object object]') {
+  if (Object.prototype.toString.call(data) === '[object Object]') {
     Object.keys(data).forEach(key => {
       defineReactive(data, key, data[key]) // 劫持侦听
       observe(data[key]) // 递归 
@@ -38,7 +38,7 @@ function defineReactive(obj, key, val) {
   const dep = new Dep() // 每一个数据(被观察者)新建一个依赖集合(观察者对象)
   Object.defineProperty(obj, key, {
     get() {
-      // dep.addSub(_watcher) // 数据初始化时候就需要建立依赖关系
+      Dep.target && dep.addSub(Dep.target) // 数据初始化时候就需要建立依赖关系
       return val
     },
     set(newVal) {
@@ -68,11 +68,12 @@ class Dep {
   }
   // 通知订阅者
   notify() {
-    for (let sub in this.subs) {
+    for (let sub of this.subs) {
       sub.update() // watcher 需要提供的一个核心方法
     }
   }
 }
+Dep.target = null // 为了在 observe 中能获取到
 
 /**
  * Compiler 模板编译系统
@@ -81,7 +82,7 @@ class Dep {
  * 对文字节点进行编译
  */
 function compile(el, data) {
-  [].slice.call(el.childNode).forEach(node => {
+  [].slice.call(el.childNodes).forEach(node => {
     if (node.nodeType === 1) {
       compile(node) // 递归
     } else if (node.nodeType === 3) {
@@ -96,6 +97,9 @@ function compile(el, data) {
  */
 function compileText(node, data) {
   let exp = textToExp(node.textContent) // 得到一个节点
+  new Watcher(exp, data, (newVal) => {
+    node.textContent = newVal
+  })
 }
 
 /**
@@ -113,4 +117,40 @@ function textToExp(text) {
     return fragment
   })
   return fragments.join('+')
+}
+
+/**
+ * Watcher
+ * update 方法
+ */
+class Watcher {
+  constructor(exp, data, callback) {
+    this.oldVal = null // 初始值
+    this.getter = expToFunc(exp, data) // 每次获取新的值
+    this.callback = callback
+    this.update()
+  }
+  // 为了在
+  get() {
+    Dep.target = this
+    let value = this.getter()
+    Dep.target = null
+    return value
+  }
+  update() {
+    let newVal = this.get()
+    if (newVal === this.oldVal) return // 节省 DOM 操作
+    this.oldVal = newVal // 复位
+    this.callback && this.callback(newVal)
+  }
+}
+
+/**
+ * expToFunc
+ * 将 exp 变成一个可执行的 function
+ * 将 data 绑定到上下文 this
+ */
+
+function expToFunc(exp, data) {
+  return new Function('with(this){return ' + exp + '}').bind(data)
 }
