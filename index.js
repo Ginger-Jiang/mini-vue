@@ -9,6 +9,7 @@ class Vue {
     this.$el = document.querySelector(options.el)
     this.$data = options.data
     observe(this.$data) // 数据绑定
+    proxy(this, options) // 代理
     compile(this.$el, this.$data) // 模板编译
   }
 }
@@ -153,4 +154,22 @@ class Watcher {
 
 function expToFunc(exp, data) {
   return new Function('with(this){return ' + exp + '}').bind(data)
+}
+
+
+/**
+ * Proxy 代理
+ * this.$data.count --> this.count
+ */
+function proxy(vueInstance, options) {
+  for (const prop in options.data) {
+    Object.defineProperty(vueInstance, prop, {
+      get() {
+        return vueInstance.$data[prop]
+      },
+      set(newVal) {
+        vueInstance.$data[prop] = newVal
+      }
+    })
+  }
 }
