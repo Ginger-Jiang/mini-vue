@@ -29,17 +29,46 @@ function observe(data) {
 
 /**
  * 将指定对象属性进行劫持侦听
- * 劫持过程中需要判定, 如果新数据也是一个对象, 就需要继续观察真侦听
+ * 劫持过程中需要判定, 如果新数据也是一个对象, 就需要继续观察侦听
+ * 通过依赖关系类(Dep) 通知有依赖关系的代理做出反应
  */
 function defineReactive(obj, key, val) {
+  // dep 是依赖于此数据的 watcher 集合
+  const dep = new Dep() // 每一个数据(被观察者)新建一个依赖集合(观察者对象)
   Object.defineProperty(obj, key, {
     get() {
+      // dep.addSub(_watcher) // 数据初始化时候就需要建立依赖关系
       return val
     },
     set(newVal) {
       if (newVal === val) return
       val = newVal
-      observe(newVal) // 新的值如果是对象也要观察
+      observe(newVal) // 新的值如果是对象也要进行观察
+      dep.notify() // 通知依赖(观察者)的代理做一些事情
     }
   })
+}
+
+/**
+ * Dep 是一个依赖关系存储器-发布订阅
+ * 使用 Set 可以保证没有重复值
+ */
+class Dep {
+  constructor() {
+    this.subs = new Set() 
+  }
+  // 添加订阅者
+  addSub(watcher) {
+    this.subs.add(watcher)
+  }
+  // 删除订阅者
+  removeSub(watcher) {
+    this.subs.delete(watcher)
+  }
+  // 通知订阅者
+  notify() {
+    for (let sub in this.subs) {
+      sub.update() // watcher 需要提供的一个核心方法
+    }
+  }
 }
