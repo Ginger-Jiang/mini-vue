@@ -9,6 +9,7 @@ class Vue {
     this.$data = options.data
     // 在 Vue 实例化的时候, 需要完成数据绑定与模板编译
     observe(this.$data) // 数据绑定
+    compile(this.$el, this.$data)
   }
 }
 
@@ -55,7 +56,7 @@ function defineReactive(obj, key, val) {
  */
 class Dep {
   constructor() {
-    this.subs = new Set() 
+    this.subs = new Set()
   }
   // 添加订阅者
   addSub(watcher) {
@@ -71,4 +72,45 @@ class Dep {
       sub.update() // watcher 需要提供的一个核心方法
     }
   }
+}
+
+/**
+ * Compiler 模板编译系统
+ * 得到 HTML 模板与 DATA
+ * 获取 el 下的所有子节点 1:元素节点 3:文字节点
+ * 对文字节点进行编译
+ */
+function compile(el, data) {
+  [].slice.call(el.childNode).forEach(node => {
+    if (node.nodeType === 1) {
+      compile(node) // 递归
+    } else if (node.nodeType === 3) {
+      compileText(node, data) // 文本编译
+    }
+  })
+}
+
+/**
+ * 解析表达式模板 ({{ message }})
+ * 得到一个需要更新的文本节点
+ */
+function compileText(node, data) {
+  let exp = textToExp(node.textContent) // 得到一个节点
+}
+
+/**
+ * 根据模板, 将内容根据表达式进行处理-目前只处理插值表达式
+ * 提取插值表达式({{}}), 替换成指定格式
+ */
+function textToExp(text) {
+  let fragments = text.split(/({{.+?}})/g)
+  fragments = fragments.map(fragment => {
+    if (fragment.match(/{{.+?}}/g)) {
+      fragment = '(' + fragment.replace(/^{{|}}$/g, '') + ')'
+    } else {
+      fragment = '`' + fragment.replace(/`/g, '\\`') + '`'
+    }
+    return fragment
+  })
+  return fragments.join('+')
 }
